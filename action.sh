@@ -53,8 +53,6 @@ if [ "$NEW_VERSION" != "$CURRENT_VERSION" ]; then
         git add $(find . -name *.csproj | grep --invert-match Test)
         git commit --amend --no-edit
         git push origin $MINOR_BRANCH_NAME
-        git tag v$NEW_RELEASE_VERSION
-        git push origin v$NEW_RELEASE_VERSION
         eval $SEQFLOW_MERGE_CALLBACK
 
         git switch $MAIN_BRANCH_NAME
