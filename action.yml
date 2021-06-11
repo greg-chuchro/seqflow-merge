@@ -1,7 +1,20 @@
-name: 'GitHub Action'
-description: ''
+name: 'seqflow merge'
+description: 'merge latest feature to version branches'
+inputs:
+  callback:
+    description: 'script to be executed on all processed branches'
+    required: false
+outputs:
+  versioning-tool-output:
+    value: ${{steps.synver.outputs.versioning-tool-output}}
 runs:
   using: 'composite'
   steps: 
-    - run: echo 'Hello World'
+    - run: |
+        GITHUB_ACTION_PATH='${{github.action_path}}'
+        TEMP_DIR='${{runner.temp}}'
+        SEQFLOW_MERGE_CALLBACK='${{inputs.callback}}'
+        . ${{github.action_path}}/action.sh
+        VERSIONING_TOOL_OUTPUT="${VERSIONING_TOOL_OUTPUT//$'\n'/'%0A'}"
+        echo "::set-output name=versioning-tool-output::$VERSIONING_TOOL_OUTPUT"
       shell: bash
