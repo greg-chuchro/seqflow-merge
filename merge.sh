@@ -21,8 +21,6 @@ else
         git add $(find . -name *.csproj | grep --invert-match Test)
         git commit --amend --no-edit
         git push origin $BRANCH_NAME
-        git tag v$NEW_RELEASE_VERSION
-        git push origin v$NEW_RELEASE_VERSION
+        eval "$SEQFLOW_MERGE_CALLBACK"
     fi
 fi
-eval $SEQFLOW_MERGE_CALLBACK
