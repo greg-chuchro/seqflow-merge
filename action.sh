@@ -3,8 +3,6 @@
 MAIN_BRANCH_NAME=$(git branch --show-current)
 COMMITS_COUNT=$(git rev-list --count $MAIN_BRANCH_NAME)
 if [ $COMMITS_COUNT -eq 1 ]; then
-    git switch --create v0.0
-    git push origin v0.0
     exit
 fi
 
@@ -14,6 +12,17 @@ CURRENT_MINOR_VERSION=$(echo "$CURRENT_VERSION" | sed -n 's/[0-9]*\.\([0-9]*\).*
 CURRENT_PATCH_VERSION=$(echo "$CURRENT_VERSION" | sed -n 's/[0-9]*\.[0-9]*\.\([0-9]*\)/\1/p')
 
 NEW_DLL=$(dotnet build $(find . -name *.csproj | grep --invert-match Test) --configuration Release | sed -n 's/.*\s[^/]*\(\/.*dll\).*/\1/p')
+
+if [ "$(git branch --remotes --list origin/v[0-9]*.[0-9]*)" == "" ]; then
+    MINOR_BRANCH_NAME=v$CURRENT_MAJOR_VERSION.$CURRENT_MINOR_VERSION
+    git switch --create $MINOR_BRANCH_NAME
+    git push origin $MINOR_BRANCH_NAME
+    eval "$SEQFLOW_MERGE_CALLBACK"
+
+    git switch $MAIN_BRANCH_NAME
+    exit
+fi
+
 cp $NEW_DLL $TEMP_DIR
 NEW_DLL="$TEMP_DIR"/$(basename "$NEW_DLL")
 git reset --hard HEAD~1
