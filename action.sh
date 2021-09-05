@@ -13,6 +13,8 @@ CURRENT_PATCH_VERSION=$(echo "$CURRENT_VERSION" | sed -n 's/[0-9]*\.[0-9]*\.\([0
 
 NEW_DLL=$(dotnet build $(find . -name *.csproj | grep --invert-match Test) --configuration Release | sed -n 's/.*\s[^/]*\(\/.*dll\).*/\1/p')
 
+git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+git fetch
 if [ "$(git branch --remotes --list origin/v[0-9]*.[0-9]*)" == "" ]; then
     MINOR_BRANCH_NAME=v$CURRENT_MAJOR_VERSION.$CURRENT_MINOR_VERSION
     git switch --create $MINOR_BRANCH_NAME
@@ -50,8 +52,6 @@ elif [ $NEW_MINOR_VERSION -ne $CURRENT_MINOR_VERSION ]; then
     set -e
     git config --global user.name "seqflow-action"
     git config --global user.email ""
-    git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
-    git fetch
     
     LATEST_BRANCH_FULL_NAME=$(git branch --remotes --list origin/v[0-9]*.[0-9]* --sort -version:refname | head -n 1 | xargs)
     LATEST_BRANCH_NAME=${LATEST_BRANCH_FULL_NAME#"origin/"}
