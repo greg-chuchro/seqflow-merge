@@ -32,11 +32,20 @@ CURRENT_DLL=$(dotnet build $(find . -name *.csproj | grep --invert-match Test) -
 git reset --hard HEAD@{1}
 
 dotnet tool install --global Ghbvft6.Synver --version 0.3.*
+set +e
 VERSIONING_TOOL_OUTPUT=$(synver $NEW_DLL $CURRENT_DLL)
+SYNVER_RESULT=$?
+if [ $SYNVER_RESULT -ne 0 ]; then
+    echo "$VERSIONING_TOOL_OUTPUT"
+    exit $SYNVER_RESULT
+fi
+set -e
+
 NEW_VERSION=$(echo "$VERSIONING_TOOL_OUTPUT" | sed -n 's/\([0-9]*\.[0-9]*\.[0-9]*\).*/\1/p')
 NEW_MAJOR_VERSION=$(echo "$NEW_VERSION" | sed -n 's/\([0-9]*\).*/\1/p')
 NEW_MINOR_VERSION=$(echo "$NEW_VERSION" | sed -n 's/[0-9]*\.\([0-9]*\).*/\1/p')
 NEW_PATCH_VERSION=$(echo "$NEW_VERSION" | sed -n 's/[0-9]*\.[0-9]*\.\([0-9]*\)/\1/p')
+
 if [ "$NEW_VERSION" == "$CURRENT_VERSION" ]; then
     SEQFLOW_CALLBACK=$(<$GITHUB_ACTION_PATH/merge.sh)
     curl -sL https://raw.githubusercontent.com/greg-chuchro/seqflow/v0.0.1/action.sh > $GITHUB_ACTION_PATH/seqflow.sh
