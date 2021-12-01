@@ -12,11 +12,11 @@ else
     TEST_RESULT=$?
     set -e
     if [ $TEST_RESULT -eq 0 ]; then
-        CURRENT_VERSION=$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' $(find . -name *.csproj | grep --invert-match Test))
-        CURRENT_MAJOR_VERSION=$(echo "$CURRENT_VERSION" | sed -n 's/\([0-9]*\).*/\1/p')
-        CURRENT_MINOR_VERSION=$(echo "$CURRENT_VERSION" | sed -n 's/[0-9]*\.\([0-9]*\).*/\1/p')
-        CURRENT_PATCH_VERSION=$(echo "$CURRENT_VERSION" | sed -n 's/[0-9]*\.[0-9]*\.\([0-9]*\)/\1/p')
-        NEW_RELEASE_VERSION=$CURRENT_MAJOR_VERSION.$CURRENT_MINOR_VERSION.$(($CURRENT_PATCH_VERSION + 1))
+        BASE_VERSION=$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' $(find . -name *.csproj | grep --invert-match Test))
+        BASE_MAJOR_VERSION=$(echo "$BASE_VERSION" | sed -n 's/\([0-9]*\).*/\1/p')
+        BASE_MINOR_VERSION=$(echo "$BASE_VERSION" | sed -n 's/[0-9]*\.\([0-9]*\).*/\1/p')
+        BASE_PATCH_VERSION=$(echo "$BASE_VERSION" | sed -n 's/[0-9]*\.[0-9]*\.\([0-9]*\)/\1/p')
+        NEW_RELEASE_VERSION=$BASE_MAJOR_VERSION.$BASE_MINOR_VERSION.$(($BASE_PATCH_VERSION + 1))
         sed -i "s/<Version>.*<\/Version>/<Version>$NEW_RELEASE_VERSION<\/Version>/" $(find . -name *.csproj | grep --invert-match Test)
         git add $(find . -name *.csproj | grep --invert-match Test)
         git commit --amend --no-edit

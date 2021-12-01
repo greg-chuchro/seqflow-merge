@@ -8,10 +8,10 @@ fi
 
 PROJECT_FILE=$(find . -name *.*proj | grep --invert-match Test)
 
-CURRENT_VERSION=$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' "$PROJECT_FILE")
-CURRENT_MAJOR_VERSION=$(echo "$CURRENT_VERSION" | sed -n 's/\([0-9]*\).*/\1/p')
-CURRENT_MINOR_VERSION=$(echo "$CURRENT_VERSION" | sed -n 's/[0-9]*\.\([0-9]*\).*/\1/p')
-CURRENT_PATCH_VERSION=$(echo "$CURRENT_VERSION" | sed -n 's/[0-9]*\.[0-9]*\.\([0-9]*\)/\1/p')
+BASE_VERSION=$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' "$PROJECT_FILE")
+BASE_MAJOR_VERSION=$(echo "$BASE_VERSION" | sed -n 's/\([0-9]*\).*/\1/p')
+BASE_MINOR_VERSION=$(echo "$BASE_VERSION" | sed -n 's/[0-9]*\.\([0-9]*\).*/\1/p')
+BASE_PATCH_VERSION=$(echo "$BASE_VERSION" | sed -n 's/[0-9]*\.[0-9]*\.\([0-9]*\)/\1/p')
 
 ASSEMBLY_NAME=$(sed -n 's/.*<AssemblyName>\(.*\)<\/AssemblyName>.*/\1/p' "$PROJECT_FILE")
 if [ "$ASSEMBLY_NAME" == "" ]; then
@@ -20,12 +20,12 @@ if [ "$ASSEMBLY_NAME" == "" ]; then
 fi
 dotnet publish "$PROJECT_FILE" --configuration Release -p:ContinuousIntegrationBuild=true
 PUBLISH_FOLDER=$(find . -name publish)
-NEW_DLL=$(realpath "$PUBLISH_FOLDER/$ASSEMBLY_NAME.dll")
+MODIFIED_DLL=$(realpath "$PUBLISH_FOLDER/$ASSEMBLY_NAME.dll")
 
 git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
 git fetch
 if [ "$(git branch --remotes --list origin/v[0-9]*.[0-9]*)" == "" ]; then
-    MINOR_BRANCH_NAME=v$CURRENT_MAJOR_VERSION.$CURRENT_MINOR_VERSION
+    MINOR_BRANCH_NAME=v$BASE_MAJOR_VERSION.$BASE_MINOR_VERSION
     git switch --create $MINOR_BRANCH_NAME
     git push origin $MINOR_BRANCH_NAME
     eval "$SEQFLOW_MERGE_CALLBACK"
@@ -35,16 +35,16 @@ if [ "$(git branch --remotes --list origin/v[0-9]*.[0-9]*)" == "" ]; then
 fi
 
 mv "$PUBLISH_FOLDER" "$TEMP_DIR/latest_publish"
-NEW_DLL="$TEMP_DIR/latest_publish"/$(basename "$NEW_DLL")
+MODIFIED_DLL="$TEMP_DIR/latest_publish"/$(basename "$MODIFIED_DLL")
 git reset --hard HEAD~1
 dotnet publish "$PROJECT_FILE" --configuration Release -p:ContinuousIntegrationBuild=true
 PUBLISH_FOLDER=$(find . -name publish)
-CURRENT_DLL=$(realpath "$PUBLISH_FOLDER/$ASSEMBLY_NAME.dll")
+BASE_DLL=$(realpath "$PUBLISH_FOLDER/$ASSEMBLY_NAME.dll")
 git reset --hard HEAD@{1}
 
 dotnet tool install --global Ghbvft6.Synver --version 0.3.*
 set +e
-VERSIONING_TOOL_OUTPUT=$(synver $NEW_DLL $CURRENT_DLL)
+VERSIONING_TOOL_OUTPUT=$(synver $BASE_DLL $MODIFIED_DLL)
 SYNVER_RESULT=$?
 echo "$VERSIONING_TOOL_OUTPUT"
 if [ $SYNVER_RESULT -ne 0 ]; then
@@ -57,15 +57,15 @@ NEW_MAJOR_VERSION=$(echo "$NEW_VERSION" | sed -n 's/\([0-9]*\).*/\1/p')
 NEW_MINOR_VERSION=$(echo "$NEW_VERSION" | sed -n 's/[0-9]*\.\([0-9]*\).*/\1/p')
 NEW_PATCH_VERSION=$(echo "$NEW_VERSION" | sed -n 's/[0-9]*\.[0-9]*\.\([0-9]*\)/\1/p')
 
-if [ "$NEW_VERSION" == "$CURRENT_VERSION" ]; then
+if [ "$NEW_VERSION" == "$BASE_VERSION" ]; then
     SEQFLOW_CALLBACK=$(<$GITHUB_ACTION_PATH/merge.sh)
     curl -sL https://raw.githubusercontent.com/greg-chuchro/seqflow/v0.0.1/action.sh > $GITHUB_ACTION_PATH/seqflow.sh
     . $GITHUB_ACTION_PATH/seqflow.sh
-elif [ $NEW_PATCH_VERSION -ne $CURRENT_PATCH_VERSION ]; then
+elif [ $NEW_PATCH_VERSION -ne $BASE_PATCH_VERSION ]; then
     SEQFLOW_CALLBACK=$(<$GITHUB_ACTION_PATH/merge_and_bump.sh)
     curl -sL https://raw.githubusercontent.com/greg-chuchro/seqflow/v0.0.1/action.sh > $GITHUB_ACTION_PATH/seqflow.sh
     . $GITHUB_ACTION_PATH/seqflow.sh
-elif [ $NEW_MINOR_VERSION -ne $CURRENT_MINOR_VERSION ]; then
+elif [ $NEW_MINOR_VERSION -ne $BASE_MINOR_VERSION ]; then
     set +e
     GIT_USER_NAME=$(git config --global user.name)
     GIT_USER_EMAIL=$(git config --global user.email)
