@@ -6,12 +6,21 @@ if [ $COMMITS_COUNT -eq 1 ]; then
     exit
 fi
 
-CURRENT_VERSION=$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' $(find . -name *.csproj | grep --invert-match Test))
+PROJECT_FILE=$(find . -name *.*proj | grep --invert-match Test)
+
+CURRENT_VERSION=$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' "$PROJECT_FILE")
 CURRENT_MAJOR_VERSION=$(echo "$CURRENT_VERSION" | sed -n 's/\([0-9]*\).*/\1/p')
 CURRENT_MINOR_VERSION=$(echo "$CURRENT_VERSION" | sed -n 's/[0-9]*\.\([0-9]*\).*/\1/p')
 CURRENT_PATCH_VERSION=$(echo "$CURRENT_VERSION" | sed -n 's/[0-9]*\.[0-9]*\.\([0-9]*\)/\1/p')
 
-NEW_DLL=$(dotnet build $(find . -name *.csproj | grep --invert-match Test) --configuration Release | sed -n 's/.*\s[^/]*\(\/.*dll\).*/\1/p')
+ASSEMBLY_NAME=$(sed -n 's/.*<AssemblyName>\(.*\)<\/AssemblyName>.*/\1/p' "$PROJECT_FILE")
+if [ "$ASSEMBLY_NAME" == "" ]; then
+    PROJECT_FILE_NAME=$(basename "$PROJECT_FILE")
+    ASSEMBLY_NAME=${PROJECT_FILE_NAME%.*}
+fi
+dotnet publish "$PROJECT_FILE" --configuration Release -p:ContinuousIntegrationBuild=true
+PUBLISH_FOLDER=$(find . -name publish)
+NEW_DLL=$(realpath "$PUBLISH_FOLDER/$ASSEMBLY_NAME.dll")
 
 git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
 git fetch
@@ -25,18 +34,20 @@ if [ "$(git branch --remotes --list origin/v[0-9]*.[0-9]*)" == "" ]; then
     exit
 fi
 
-cp $NEW_DLL $TEMP_DIR
-NEW_DLL="$TEMP_DIR"/$(basename "$NEW_DLL")
+mv "$PUBLISH_FOLDER" "$TEMP_DIR/latest_publish"
+NEW_DLL="$TEMP_DIR/latest_publish"/$(basename "$NEW_DLL")
 git reset --hard HEAD~1
-CURRENT_DLL=$(dotnet build $(find . -name *.csproj | grep --invert-match Test) --configuration Release | sed -n 's/.*\s[^/]*\(\/.*dll\).*/\1/p')
+dotnet publish "$PROJECT_FILE" --configuration Release -p:ContinuousIntegrationBuild=true
+PUBLISH_FOLDER=$(find . -name publish)
+CURRENT_DLL=$(realpath "$PUBLISH_FOLDER/$ASSEMBLY_NAME.dll")
 git reset --hard HEAD@{1}
 
 dotnet tool install --global Ghbvft6.Synver --version 0.3.*
 set +e
 VERSIONING_TOOL_OUTPUT=$(synver $NEW_DLL $CURRENT_DLL)
 SYNVER_RESULT=$?
+echo "$VERSIONING_TOOL_OUTPUT"
 if [ $SYNVER_RESULT -ne 0 ]; then
-    echo "$VERSIONING_TOOL_OUTPUT"
     exit $SYNVER_RESULT
 fi
 set -e
@@ -70,8 +81,8 @@ elif [ $NEW_MINOR_VERSION -ne $CURRENT_MINOR_VERSION ]; then
     NEW_RELEASE_VERSION=$LATEST_BRANCH_MAJOR_VERSION.$(($LATEST_BRANCH_MINOR_VERSION + 1)).$INITIAL_PATCH_VERSION
     MINOR_BRANCH_NAME=v$LATEST_BRANCH_MAJOR_VERSION.$(($LATEST_BRANCH_MINOR_VERSION + 1))
     git switch --create $MINOR_BRANCH_NAME
-    sed -i "s/<Version>.*<\/Version>/<Version>$NEW_RELEASE_VERSION<\/Version>/" $(find . -name *.csproj | grep --invert-match Test)
-    git add $(find . -name *.csproj | grep --invert-match Test)
+    sed -i "s/<Version>.*<\/Version>/<Version>$NEW_RELEASE_VERSION<\/Version>/" $PROJECT_FILE
+    git add $PROJECT_FILE
     git commit --amend --no-edit
     git push origin $MINOR_BRANCH_NAME
     eval "$SEQFLOW_MERGE_CALLBACK"
