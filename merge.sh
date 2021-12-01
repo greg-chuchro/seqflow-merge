@@ -8,7 +8,7 @@ if [ $MERGE_RESULT -ne 0 ]; then
     git cherry-pick --abort
 else
     set +e
-    dotnet test
+    dotnet test --configuration Release -p:ContinuousIntegrationBuild=true
     TEST_RESULT=$?
     set -e
     if [ $TEST_RESULT -eq 0 ]; then
