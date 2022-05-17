@@ -11,10 +11,9 @@ runs:
   using: 'composite'
   steps: 
     - run: |
-        GITHUB_ACTION_PATH='${{github.action_path}}'
-        TEMP_DIR='${{runner.temp}}'
+        TEMP_DIR=$RUNNER_TEMP
         SEQFLOW_MERGE_CALLBACK='${{inputs.callback}}'
-        . ${{github.action_path}}/action.sh
+        . $GITHUB_ACTION_PATH/action.sh
         VERSIONING_TOOL_OUTPUT="${VERSIONING_TOOL_OUTPUT//$'\n'/'%0A'}"
         echo "::set-output name=versioning-tool-output::$VERSIONING_TOOL_OUTPUT"
       shell: bash
